@@ -15,8 +15,18 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     var models = [String]()
     
+    var actualDate = Date()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
+        swipeLeft.direction = .left
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
+        swipeRight.direction = .right
+        
+        self.view.addGestureRecognizer(swipeLeft)
+        self.view.addGestureRecognizer(swipeRight)
         
         table.delegate = self
         table.dataSource = self
@@ -25,25 +35,18 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        requestWeatherForLocation()
+        getContent()
     }
     
-    func requestWeatherForLocation() {
-        let date = Date()
-        let todayString = "\(date.getMonth())-\(date.getDay())"
-        let tomorrowString = "\(Date.tomorrow.getMonth())-\(Date.tomorrow.getDay())"
-        
-        print(getNames(dateString: todayString))
+    func getContent() {
+        let todayString = "\(actualDate.getMonth())-\(actualDate.getDay())"
+        getNames(dateString: todayString)
     }
     
-    func getNames(dateString: String) -> [String] {
+    func getNames(dateString: String) {
         let url = "https://api.nevnapok.eu/nap/\(dateString)"
         
         var returnNames: [String] = []
-        
-        let group = DispatchGroup()
-        
-        group.enter()
         
         URLSession.shared.dataTask(with: URL(string: url)!, completionHandler: { data, response, error in
             guard let data = data, error == nil else {
@@ -57,12 +60,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                     if let names = json[dateString] as? [String] {
                         returnNames = names
                         
+                        self.models.removeAll()
                         self.models.append(contentsOf: returnNames)
                         
                         DispatchQueue.main.async {
-                            self.table.reloadData()
-                            
                             self.table.tableHeaderView = self.createTableGeaderView()
+                            self.table.reloadData()
                         }
                     }
                 }
@@ -70,30 +73,23 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 print("Failed to load: \(error.localizedDescription)")
             }
             
-            group.leave()
-            
         }).resume()
-        
-        group.wait()
-        
-        return returnNames
     }
     
     func createTableGeaderView() -> UIView {
+        
         let headerView = UIView(frame: CGRect(x: 0, y: 0, width: view.frame.size.width - 20, height: view.frame.size.width * 0.4))
         
         let dateLabel = UILabel(frame: CGRect(x: 10, y: 10, width: view.frame.size.width - 20, height: headerView.frame.size.height))
         
         let dayLabel = UILabel(frame: CGRect(x: 10, y: dateLabel.frame.size.height - 60, width: view.frame.size.width - 20, height: headerView.frame.size.height * 0.3))
         
-        let date = Date()
-        
         dateLabel.textAlignment = .center
-        dateLabel.text = date.getCustomDateString()
+        dateLabel.text = actualDate.getCustomDateString()
         dateLabel.font = UIFont(name: "Helvetica-Bold", size: 32)
         
         dayLabel.textAlignment = .center
-        dayLabel.text = date.getDayString()
+        dayLabel.text = actualDate.getDayString()
         dayLabel.font = UIFont(name: "Helvetica-Bold", size: 20)
         
         headerView.addSubview(dateLabel)
@@ -116,6 +112,34 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         cell.textLabel?.text = name
         
         return cell
+    }
+    
+    func incrementDate() {
+        var dateComponent = DateComponents()
+        dateComponent.day = 1
+        
+        actualDate = Calendar.current.date(byAdding: dateComponent, to: actualDate)!
+    }
+    
+    func decrementDate() {
+        var dateComponent = DateComponents()
+        dateComponent.day = -1
+        
+        actualDate = Calendar.current.date(byAdding: dateComponent, to: actualDate)!
+    }
+    
+    @objc func handleSwipeGestures(gesture: UISwipeGestureRecognizer) {
+        if gesture.direction == .left {
+            incrementDate()
+            getContent()
+            self.table.leftToRightAnimation()
+            self.view.setNeedsDisplay()
+        }else if gesture.direction == .right {
+            decrementDate()
+            getContent()
+            self.table.rightToLeftAnimation()
+            self.view.setNeedsDisplay()
+        }
     }
 }
 
@@ -147,26 +171,44 @@ extension Date {
         
         return dateFormatter.string(from: self)
     }
-    
-    static var yesterday: Date { return Date().dayBefore }
-    static var tomorrow:  Date { return Date().dayAfter }
-    
-    var dayBefore: Date {
-        return Calendar.current.date(byAdding: .day, value: -1, to: noon)!
+}
+
+extension UIView {
+    func leftToRightAnimation(duration: TimeInterval = 0.5, completionDelegate: AnyObject? = nil) {
+        // Create a CATransition object
+        let leftToRightTransition = CATransition()
+        
+        // Set its callback delegate to the completionDelegate that was provided
+        if let delegate: AnyObject = completionDelegate {
+            leftToRightTransition.delegate = delegate as? CAAnimationDelegate
+        }
+        
+        leftToRightTransition.type = CATransitionType.push
+        leftToRightTransition.subtype = CATransitionSubtype.fromRight
+        leftToRightTransition.duration = duration
+        leftToRightTransition.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeInEaseOut)
+        leftToRightTransition.fillMode = CAMediaTimingFillMode.removed
+        
+        // Add the animation to the View's layer
+        self.layer.add(leftToRightTransition, forKey: "leftToRightTransition")
     }
     
-    var dayAfter: Date {
-        return Calendar.current.date(byAdding: .day, value: 1, to: noon)!
-    }
-    
-    var noon: Date {
-        return Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: self)!
-    }
-    
-    var month: Int {
-        return Calendar.current.component(.month,  from: self)
-    }
-    var isLastDayOfMonth: Bool {
-        return dayAfter.month != month
+    func rightToLeftAnimation(duration: TimeInterval = 0.5, completionDelegate: AnyObject? = nil) {
+        // Create a CATransition object
+        let rightToLeftTransition = CATransition()
+        
+        // Set its callback delegate to the completionDelegate that was provided
+        if let delegate: AnyObject = completionDelegate {
+            rightToLeftTransition.delegate = delegate as? CAAnimationDelegate
+        }
+        
+        rightToLeftTransition.type = CATransitionType.push
+        rightToLeftTransition.subtype = CATransitionSubtype.fromLeft
+        rightToLeftTransition.duration = duration
+        rightToLeftTransition.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeInEaseOut)
+        rightToLeftTransition.fillMode = CAMediaTimingFillMode.removed
+        
+        // Add the animation to the View's layer
+        self.layer.add(rightToLeftTransition, forKey: "rightToLeftTransition")
     }
 }
