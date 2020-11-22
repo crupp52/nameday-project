@@ -20,6 +20,32 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.requestAuthorization(options: [.alert, .badge, .sound], completionHandler: {granted,
+            error in
+            if granted {
+                let center = UNUserNotificationCenter.current()
+                
+                let content = UNMutableNotificationContent()
+                content.title = "Name days on \(self.actualDate.getDayString())"
+                content.body = "Check the names!"
+                content.categoryIdentifier = "alarm"
+                content.sound = UNNotificationSound.default
+                
+                var dateComponents = DateComponents()
+                dateComponents.hour = 9
+                dateComponents.minute = 0
+                let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+                
+                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+                center.add(request)
+            }
+        })
+        
+        let todayButton = UIBarButtonItem(title: "Today", style: .plain, target: self, action: #selector(jumbToday))
+        
+        navigationItem.rightBarButtonItem = todayButton
+        
         let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
         swipeLeft.direction = .left
         let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
@@ -140,6 +166,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             self.table.rightToLeftAnimation()
             self.view.setNeedsDisplay()
         }
+    }
+    
+    @objc func jumbToday(){
+        actualDate = Date()
+        getContent()
+        self.view.setNeedsDisplay()
     }
 }
 
