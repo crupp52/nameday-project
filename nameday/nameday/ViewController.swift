@@ -20,6 +20,31 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        rigsterNotification()
+        
+        let todayButton = UIBarButtonItem(title: "Today", style: .plain, target: self, action: #selector(jumpToday))
+        
+        navigationItem.rightBarButtonItem = todayButton
+        
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
+        swipeLeft.direction = .left
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
+        swipeRight.direction = .right
+        
+        self.view.addGestureRecognizer(swipeLeft)
+        self.view.addGestureRecognizer(swipeRight)
+        
+        table.delegate = self
+        table.dataSource = self
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        getContent()
+    }
+    
+    func rigsterNotification() {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.requestAuthorization(options: [.alert, .badge, .sound], completionHandler: {granted,
             error in
@@ -41,27 +66,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 center.add(request)
             }
         })
-        
-        let todayButton = UIBarButtonItem(title: "Today", style: .plain, target: self, action: #selector(jumbToday))
-        
-        navigationItem.rightBarButtonItem = todayButton
-        
-        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
-        swipeLeft.direction = .left
-        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(self.handleSwipeGestures(gesture:)))
-        swipeRight.direction = .right
-        
-        self.view.addGestureRecognizer(swipeLeft)
-        self.view.addGestureRecognizer(swipeRight)
-        
-        table.delegate = self
-        table.dataSource = self
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        
-        getContent()
     }
     
     func getContent() {
@@ -168,9 +172,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         }
     }
     
-    @objc func jumbToday(){
+    @objc func jumpToday(){
         actualDate = Date()
         getContent()
+        self.table.topToBottomAnimation()
         self.view.setNeedsDisplay()
     }
 }
@@ -242,5 +247,24 @@ extension UIView {
         
         // Add the animation to the View's layer
         self.layer.add(rightToLeftTransition, forKey: "rightToLeftTransition")
+    }
+    
+    func topToBottomAnimation(duration: TimeInterval = 0.5, completionDelegate: AnyObject? = nil) {
+        // Create a CATransition object
+        let topToBottomTransition = CATransition()
+        
+        // Set its callback delegate to the completionDelegate that was provided
+        if let delegate: AnyObject = completionDelegate {
+            topToBottomTransition.delegate = delegate as? CAAnimationDelegate
+        }
+        
+        topToBottomTransition.type = CATransitionType.push
+        topToBottomTransition.subtype = CATransitionSubtype.fromTop
+        topToBottomTransition.duration = duration
+        topToBottomTransition.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeInEaseOut)
+        topToBottomTransition.fillMode = CAMediaTimingFillMode.removed
+        
+        // Add the animation to the View's layer
+        self.layer.add(topToBottomTransition, forKey: "topToBottomAnimation")
     }
 }
